@@ -184,6 +184,15 @@ fn spawn_api_process(path: &std::path::Path, port: u16, backend_logs: Arc<Mutex<
         ));
     }
 
+    // Only ever spawn the expected FastAPI binary, never an arbitrary resolved path.
+    match path.file_name().and_then(|n| n.to_str()) {
+        Some("realsense_api") | Some("realsense_api.exe") => {}
+        _ => return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Refusing to spawn unexpected executable: {:?}", path),
+        )),
+    }
+
     let mut cmd = Command::new(&path);
     cmd.env("UVICORN_PORT", port.to_string())
         .env("UVICORN_HOST", "127.0.0.1")

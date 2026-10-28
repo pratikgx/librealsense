@@ -39,6 +39,7 @@
 #if defined __linux__ || defined __APPLE__
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <pwd.h>
 #endif
 
@@ -76,14 +77,25 @@ namespace rs2
         // No browser or no handler is the user's environment, not a program error
 #if (defined(_WIN32) || defined(_WIN64))
         bool ok = reinterpret_cast<INT_PTR>(ShellExecuteA(NULL, "open", url, NULL, NULL, SW_SHOW)) >= 32;
-#elif defined __linux__ || defined(__linux__)
-        std::string command_name = "xdg-open ";
-        std::string command = command_name + url;
-        bool ok = system(command.c_str()) == 0;
-#elif __APPLE__
-        std::string command_name = "open ";
-        std::string command = command_name + url;
-        bool ok = system(command.c_str()) == 0;
+#elif defined __linux__ || defined(__linux__) || defined __APPLE__
+        // Launch the opener directly (no shell) so url can't be interpreted as shell syntax.
+#if defined __linux__ || defined(__linux__)
+        const char * opener = "xdg-open";
+#else
+        const char * opener = "open";
+#endif
+        bool ok = false;
+        pid_t pid = fork();
+        if( pid == 0 )
+        {
+            execlp( opener, opener, url, (char *)nullptr );
+            _exit( 127 );
+        }
+        else if( pid > 0 )
+        {
+            int status = 0;
+            ok = ( waitpid( pid, &status, 0 ) == pid ) && WIFEXITED( status ) && WEXITSTATUS( status ) == 0;
+        }
 #else
 #pragma message ( "\nLibrealsense couldn't establish OS/Build environment. \
 Some auxillary functionalities might be affected. Please report this message if encountered")

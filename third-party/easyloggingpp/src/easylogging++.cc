@@ -1069,6 +1069,11 @@ const std::string OS::getBashOutput(const char* command) {
   if (command == nullptr) {
     return std::string();
   }
+  // Reject shell metacharacters that would let the command be chained with another (command injection).
+  if (strpbrk(command, ";&|`$\n") != nullptr) {
+    ELPP_INTERNAL_ERROR("\nRefusing to run command with unsafe characters [" << command << "]", true);
+    return std::string();
+  }
   FILE* proc = nullptr;
   if ((proc = popen(command, "r")) == nullptr) {
     ELPP_INTERNAL_ERROR("\nUnable to run command [" << command << "]", true);
